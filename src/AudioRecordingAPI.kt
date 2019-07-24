@@ -83,4 +83,8 @@ class AudioRecordingAPI : AutoCloseable {
         }
         clip = null
     }
+
+    fun exists(filePrefix: String): Boolean {
+        return Files.exists(Paths.get("$filePrefix.wav"))
+    }
 }

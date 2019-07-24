@@ -59,9 +59,14 @@ Version:
 
     override fun run() {
         AudioRecordingAPI().use { api ->
+            if (skipExisting) {
+                index = promptValues.indexOfFirst {
+                    !api.exists(it.replace(' ', '_'))
+                } - 1
+            }
+
             runTerminalLoop(api)
         }
-
     }
 
     private fun runTerminalLoop(api: AudioRecordingAPI) {

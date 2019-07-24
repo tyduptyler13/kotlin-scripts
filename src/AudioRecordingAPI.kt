@@ -30,6 +30,8 @@ class AudioRecordingAPI : AutoCloseable {
         stopPlaying()
         line.stop()
         currentRecordingThread!!.join()
+        recording = false
+        recordingStartTime = null
     }
 
     fun startRecording(filePrefix: String) {

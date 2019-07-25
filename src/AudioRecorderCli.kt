@@ -35,7 +35,7 @@ class AudioRecorderCli : CliktCommand(
              |  <right arrow> - Next phrase
              |  
              |Version:
-             |  1.1.0""".trimMargin()
+             |  1.1.1""".trimMargin()
 ) {
     private val prompts: File by argument(help = "A csv of prompt text (col 1)").file(
         exists = true,
@@ -133,6 +133,8 @@ class AudioRecorderCli : CliktCommand(
                 currentMessage = if (index - 1 < 0) {
                     "No previous recordings"
                 } else {
+                    // We should always be able to play previous if we aren't at the beginning because
+                    // the index should never progress more than 1 past the end
                     api.playLastFile(promptValues[index - 1].replace(' ', '_'))
                     "Playing..."
                 }
@@ -171,10 +173,11 @@ class AudioRecorderCli : CliktCommand(
 
         val validIndex = if (index >= promptValues.size) {
             currentMessage = "You have reached the end!"
+            index = promptValues.size // Never let it progress more than 1 past the end
             false
         } else if (index <= -1) {
-            index = -1
             currentMessage = "You are at the beginning"
+            index = -1 // Never let it progress more than 1 before the beginning
             false
         } else {
             currentMessage = promptValues[index]
@@ -207,6 +210,7 @@ class AudioRecorderCli : CliktCommand(
         newTextGraphics()
             .putString(TerminalPosition(0, row++), "q            - Quit")
             .putString(TerminalPosition(0, row++), "<space>      - Save and continue")
+            .putString(TerminalPosition(0, row++), "h            - Toggle this text")
             .putString(TerminalPosition(0, row++), "r            - Retry")
             .putString(TerminalPosition(0, row++), "p            - Play last recording")
             .putString(TerminalPosition(0, row++), "s            - Stop recording")

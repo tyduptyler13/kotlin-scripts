@@ -1,5 +1,6 @@
 import java.nio.file.Files
 import java.nio.file.Paths
+import java.nio.file.StandardCopyOption
 import java.time.Instant
 import javax.sound.sampled.*
 
@@ -26,10 +27,17 @@ class AudioRecordingAPI : AutoCloseable {
 
     var clip: Clip? = null
 
+    @Volatile
+    var save: Boolean = true
+
     fun stopRecording() {
         stopPlaying()
+        if (!recording) {
+            return
+        }
+
+        save = false
         line.stop()
-        currentRecordingThread!!.join()
         recording = false
         recordingStartTime = null
     }
@@ -37,22 +45,32 @@ class AudioRecordingAPI : AutoCloseable {
     fun startRecording(filePrefix: String) {
         stopPlaying()
         if (recording) {
-            line.stop() // The thread will continue to exist until it finishes writing to that file
+            save = true
+            line.stop()
         }
 
         recording = true
         recordingStartTime = Instant.now()
 
         currentRecordingThread = Thread {
-            line.open()
-            line.start()
+            val tmpFile = Files.createTempFile("audio", ".wav")
 
-            val ais = AudioInputStream(line)
+            try {
+                line.open()
+                line.start()
 
-            val path = Paths.get("$filePrefix.wav")
-            Files.deleteIfExists(path)
+                val ais = AudioInputStream(line)
 
-            AudioSystem.write(ais, AudioFileFormat.Type.WAVE, path.toFile())
+                // Thread will block here until line.stop is called (or an exception)
+                AudioSystem.write(ais, AudioFileFormat.Type.WAVE, tmpFile.toFile())
+
+                if (save) {
+                    val path = Paths.get("$filePrefix.wav")
+                    Files.copy(tmpFile, path, StandardCopyOption.REPLACE_EXISTING)
+                }
+            } finally {
+                Files.delete(tmpFile)
+            }
         }
 
         currentRecordingThread!!.start()
@@ -61,11 +79,6 @@ class AudioRecordingAPI : AutoCloseable {
     override fun close() {
         line.close()
         clip?.close()
-    }
-
-    fun deleteLastFile(filePrefix: String) {
-        stopPlaying()
-        Files.delete(Paths.get("$filePrefix.wav"))
     }
 
     fun playLastFile(filePrefix: String) {

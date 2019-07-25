@@ -6,6 +6,8 @@ import com.github.ajalt.clikt.parameters.types.file
 import com.googlecode.lanterna.SGR
 import com.googlecode.lanterna.TerminalPosition
 import com.googlecode.lanterna.TextColor
+import com.googlecode.lanterna.input.KeyStroke
+import com.googlecode.lanterna.input.KeyType
 import com.googlecode.lanterna.screen.TerminalScreen
 import com.googlecode.lanterna.terminal.DefaultTerminalFactory
 import org.apache.commons.csv.CSVFormat
@@ -20,31 +22,32 @@ import java.util.*
  */
 class AudioRecorderCli : CliktCommand(
     printHelpOnEmptyArgs = true,
-    help = """This program is designed to record short pieces of audio very quickly. It will setup your microphone and wait to begin. From there, you press space to start and every time you press space it will save the last segment to disk with a numbered value. 
 
-Keys:
-  <space> - Start/Save
-  q - Quit (don't save)
-  r - Retry (clears buffer and starts this segment over)
-  x - Deletes the last saved recording
-  p - Plays the last saved recording
-  s - Stops recording (without saving)
-  
-Version:
-  1.0.1
-"""
+    help = """This program is designed to record short pieces of audio very quickly. It will setup your microphone and wait to begin. From there, you press space to start and every time you press space it will save the last segment to disk with a numbered value. 
+             |
+             |Keys:
+             |  <space> - Start/Save (and show next)
+             |  q - Quit (don't save)
+             |  r - Retry (clears buffer and starts this segment over)
+             |  p - Plays the last saved recording
+             |  s - Stops recording (without saving)
+             |  <left arrow> - Previous phrase
+             |  <right arrow> - Next phrase
+             |  
+             |Version:
+             |  1.1.0""".trimMargin()
 ) {
-    val prompts: File by argument(help = "A csv of prompt text (col 1)").file(
+    private val prompts: File by argument(help = "A csv of prompt text (col 1)").file(
         exists = true,
         fileOkay = true,
         readable = true
     )
 
-    val skipExisting: Boolean by option(help = "Allows you to continue if you have previously stopped by skipping inputs for which the output already exists").flag()
+    private val skipExisting: Boolean by option(help = "Allows you to continue if you have previously stopped by skipping inputs for which the output already exists").flag()
 
-    var currentMessage = "Press space to start"
+    private var currentMessage = "Press space to start"
 
-    val promptValues: List<String> by lazy {
+    private val promptValues: List<String> by lazy {
         val parser = CSVParser(
             prompts.bufferedReader(), CSVFormat.DEFAULT.withSkipHeaderRecord(true)
                 .withFirstRecordAsHeader()
@@ -55,7 +58,9 @@ Version:
         }
     }
 
-    var index = -1
+    private var showFullKeymap: Boolean = false
+
+    private var index = -1
 
     override fun run() {
         AudioRecordingAPI().use { api ->
@@ -86,40 +91,19 @@ Version:
                     screen.pollInput()?.let {
                         dirty = true
                         screen.clear()
-                        when (it.character) {
-                            ' ' -> {
-                                showNextMessage()
-                                api.startRecording(currentMessage.replace(' ', '_'))
-                            }
-                            'r' -> {
-                                val prefix = currentMessage.replace(' ', '_')
-                                api.stopRecording()
-                                api.deleteLastFile(prefix)
-                                api.startRecording(prefix)
-                            }
-                            'x' -> {
-                                api.stopRecording()
-                                api.deleteLastFile(currentMessage.replace(' ', '_'))
-                                currentMessage = "Deleted last recording"
-                            }
-                            'p' -> {
-                                if (index - 1 < 0) {
-                                    currentMessage = "No previous recordings"
-                                }
-                                api.playLastFile(promptValues[index - 1].replace(' ', '_'))
-                                currentMessage = "Playing..."
-                            }
-                            's' -> {
-                                api.stopRecording()
-                                currentMessage = "Stopped"
-                            }
-                            'q' -> return
+
+                        if (handleKeyStroke(it, api)) {
+                            return // Exit loop
                         }
                     }
 
                     if (dirty || api.recording) {
                         screen.clear()
-                        screen.showKeymap()
+                        if (showFullKeymap) {
+                            screen.showFullKeymap()
+                        } else {
+                            screen.showKeymap()
+                        }
                         screen.showCenteredMessage()
                         if (api.recording) {
                             screen.showRecording()
@@ -135,11 +119,75 @@ Version:
         }
     }
 
-    private fun showNextMessage() {
-        index++
-        currentMessage = promptValues[index]
+    /**
+     * Handles all of the key logic and returns true if the program should exit
+     */
+    private fun handleKeyStroke(keyStroke: KeyStroke, api: AudioRecordingAPI): Boolean {
+        when (keyStroke.character) {
+            ' ' -> recordNext(api)
+            'r' -> {
+                api.stopRecording()
+                api.startRecording(currentMessage.replace(' ', '_'))
+            }
+            'p' -> {
+                currentMessage = if (index - 1 < 0) {
+                    "No previous recordings"
+                } else {
+                    api.playLastFile(promptValues[index - 1].replace(' ', '_'))
+                    "Playing..."
+                }
+            }
+            's' -> {
+                api.stopRecording()
+                currentMessage = "Stopped"
+            }
+            'h' -> showFullKeymap = !showFullKeymap // invert showFullKeymap
+            'q' -> return true
+            else -> {
+                when (keyStroke.keyType) {
+                    KeyType.ArrowLeft -> {
+                        api.stopRecording()
+                        index -= 2
+                        recordNext(api)
+                    }
+                    KeyType.ArrowRight -> {
+                        api.stopRecording()
+                        recordNext(api)
+                    }
+                    else -> {
+                    } // Do nothing
+                }
+            }
+        }
+
+        return false
     }
 
+    /**
+     * Logic for the next thing to record
+     */
+    private fun recordNext(api: AudioRecordingAPI) {
+        index++
+
+        val validIndex = if (index >= promptValues.size) {
+            currentMessage = "You have reached the end!"
+            false
+        } else if (index <= -1) {
+            index = -1
+            currentMessage = "You are at the beginning"
+            false
+        } else {
+            currentMessage = promptValues[index]
+            true
+        }
+
+        if (api.recording || validIndex) {
+            api.startRecording(currentMessage.replace(' ', '_'))
+        }
+        if (!validIndex) {
+            api.stopRecording()
+        }
+    }
 
     private fun TerminalScreen.showCenteredMessage() {
         newTextGraphics().putString(
@@ -150,8 +198,20 @@ Version:
 
     private fun TerminalScreen.showKeymap() {
         val message =
-            "q - Quit, <space> - Save and continue, r - Retry, x - Delete last recording, p - Play last recording, s - Stop recording"
+            "q - Quit, <space> - Save and continue, h - Toggle full keymap text"
         newTextGraphics().putString(TerminalPosition(0, terminalSize.rows - 1), message)
+    }
+
+    private fun TerminalScreen.showFullKeymap() {
+        var row = 1
+        newTextGraphics()
+            .putString(TerminalPosition(0, row++), "q            - Quit")
+            .putString(TerminalPosition(0, row++), "<space>      - Save and continue")
+            .putString(TerminalPosition(0, row++), "r            - Retry")
+            .putString(TerminalPosition(0, row++), "p            - Play last recording")
+            .putString(TerminalPosition(0, row++), "s            - Stop recording")
+            .putString(TerminalPosition(0, row++), "<left arrow> - Previous phrase")
+            .putString(TerminalPosition(0, row++), "right arrow> - Next phrase")
     }
 
     private fun TerminalScreen.showRecording() {

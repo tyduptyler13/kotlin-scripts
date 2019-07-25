@@ -7,6 +7,9 @@
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="library" name="com.github.ajalt:clikt:2.1.0" level="project" />
+    <orderEntry type="library" name="com.googlecode.lanterna:lanterna:3.0.1" level="project" />
+    <orderEntry type="library" name="org.apache.commons:commons-csv:1.6" level="project" />
     <orderEntry type="library" name="KotlinJavaRuntime" level="project" />
   </component>
 </module>

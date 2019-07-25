@@ -2,6 +2,8 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+      <module fileurl="file://$PROJECT_DIR$/AudioRecorder/AudioRecorder.iml" filepath="$PROJECT_DIR$/AudioRecorder/AudioRecorder.iml" />
+      <module fileurl="file://$PROJECT_DIR$/GLGlobe/GLGlobe.iml" filepath="$PROJECT_DIR$/GLGlobe/GLGlobe.iml" />
       <module fileurl="file://$PROJECT_DIR$/kotlin-scripts.iml" filepath="$PROJECT_DIR$/kotlin-scripts.iml" />
     </modules>
   </component>

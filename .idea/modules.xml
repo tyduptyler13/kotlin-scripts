@@ -4,6 +4,7 @@
     <modules>
       <module fileurl="file://$PROJECT_DIR$/AudioRecorder/AudioRecorder.iml" filepath="$PROJECT_DIR$/AudioRecorder/AudioRecorder.iml" />
       <module fileurl="file://$PROJECT_DIR$/Cyfe/Cyfe.iml" filepath="$PROJECT_DIR$/Cyfe/Cyfe.iml" />
+      <module fileurl="file://$PROJECT_DIR$/DeepSpeechData/DeepSpeechData.iml" filepath="$PROJECT_DIR$/DeepSpeechData/DeepSpeechData.iml" />
       <module fileurl="file://$PROJECT_DIR$/GLGlobe/GLGlobe.iml" filepath="$PROJECT_DIR$/GLGlobe/GLGlobe.iml" />
       <module fileurl="file://$PROJECT_DIR$/kotlin-scripts.iml" filepath="$PROJECT_DIR$/kotlin-scripts.iml" />
     </modules>
